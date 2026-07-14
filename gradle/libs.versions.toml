@@ -1,0 +1,21 @@
+[versions]
+kotlin = "2.0.21"
+ktor = "2.3.12"
+kotlinx-serialization = "1.7.3"
+kotlinx-coroutines = "1.9.0"
+gcp-pubsub = "1.131.0"
+postgresql-driver = "42.7.4"
+jedis = "5.2.0"
+
+[libraries]
+ktor-client-core = { module = "io.ktor:ktor-client-core", version.ref = "ktor" }
+ktor-client-cio = { module = "io.ktor:ktor-client-cio", version.ref = "ktor" }
+kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
+kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinx-coroutines" }
+gcp-pubsub = { module = "com.google.cloud:google-cloud-pubsub", version.ref = "gcp-pubsub" }
+postgresql-driver = { module = "org.postgresql:postgresql", version.ref = "postgresql-driver" }
+jedis = { module = "redis.clients:jedis", version.ref = "jedis" }
+
+[plugins]
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
