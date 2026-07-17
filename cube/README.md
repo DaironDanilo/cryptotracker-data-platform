@@ -29,15 +29,29 @@ and doesn't cover this) before writing any config, per instruction:
   GCS, or Azure Blob as the durable backing store (specifically because they
   provide the strong consistency guarantees Cube Store's design requires --
   the docs are explicit that these three are "the only known
-  implementations" that qualify). For GCS specifically, three env vars
-  matter: `CUBESTORE_GCS_BUCKET` (required), `CUBESTORE_GCP_KEY_FILE` (path
-  to a mounted service account JSON key -- there's also a
-  `CUBESTORE_GCP_CREDENTIALS` base64-string variant, but a mounted file is
-  cleaner for Docker Compose), and `CUBESTORE_GCS_SUB_PATH` (optional
-  prefix, unused here). **Every** Cube Store node -- router and each
-  worker -- needs the same three variables; `CUBESTORE_DATA_DIR` on each
-  node is just that node's local working copy of the shared bucket, not a
-  substitute for it.
+  implementations" that qualify). This was the original setup here (GCS,
+  via `CUBESTORE_GCS_BUCKET`/`CUBESTORE_GCP_KEY_FILE`) -- **since reverted
+  to local storage** (see callout below) after it turned out to cost real
+  money for a cache with zero consumers.
+
+**Reverted to local-disk storage (`CUBESTORE_REMOTE_DIR`), not GCS.** All 3
+Cube Store nodes syncing continuously against one GCS bucket generated
+~53,600 Storage API calls/day even with Cube completely unqueried (nothing
+uses it yet -- it's kept for the future chatbot use case) -- blew straight
+past GCS's free tier (5,000 Class A ops/month) and was on a clear trajectory
+to cost real money for a cache nobody was reading from. Cube's own docs
+call local-path "remote" storage the right setup specifically "if all nodes
+of a cluster run on a single machine" -- exactly this deployment (all 3
+Cube Store containers live permanently on one box with persistent Docker
+volumes already, not real distributed/ephemeral machines that need a
+network-durable shared store). `CUBESTORE_REMOTE_DIR` points all 3 nodes at
+the same shared named Docker volume instead of GCS, keeping the "one shared
+durable store all nodes see" property GCS was providing, at zero ongoing
+cost. Explicitly **not recommended by Cube's docs for production use** --
+acceptable trade here because this is a personal project optimizing for
+near-zero cost, not a production deployment with uptime/durability SLAs.
+`CUBESTORE_DATA_DIR` is unrelated either way: that's always been each
+node's own local scratch space, never the durable store itself.
 
 **Deliberate deviation from the official sizing**: those RAM/CPU minimums
 (effectively 30GB+ RAM total across 1 API instance + 1 refresh worker + 1

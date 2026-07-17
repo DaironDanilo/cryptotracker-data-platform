@@ -126,15 +126,24 @@ services:
       CUBESTORE_SERVER_NAME: cubestore-router:9999
       CUBESTORE_META_PORT: "9999"
       CUBESTORE_WORKERS: "cubestore-worker-1:9001,cubestore-worker-2:9001"
-      # GCS remote storage for the pre-aggregation cache -- NOT local disk.
-      # All Cube Store nodes (router + every worker) need these same three
-      # variables; the bucket is the durable store, CUBESTORE_DATA_DIR below
-      # is just each node's local working-copy cache of it.
-      CUBESTORE_GCS_BUCKET: gcp-crypto-tracker-cubestore
-      CUBESTORE_GCP_KEY_FILE: /cube/conf/secrets/cubestore-gcs-runtime.json
+      # Local-disk "remote storage" -- NOT GCS. This used to be GCS-backed
+      # (CUBESTORE_GCS_BUCKET), but all 3 Cube Store nodes syncing against
+      # one GCS bucket generated ~53,600 Storage API calls/day even with
+      # zero real queries (Cube is currently unused, kept for a future
+      # chatbot) -- blew past the free tier and was on track to cost real
+      # money for a cache with no consumer. CUBESTORE_REMOTE_DIR makes Cube
+      # Store treat a local path as if it were remote storage, which Cube's
+      # own docs call out as the intended setup "if all nodes of a cluster
+      # run on a single machine" -- exactly this deployment (all 3 nodes are
+      # containers on one box, not real distributed machines that need a
+      # shared network-durable store). All 3 nodes mount the SAME named
+      # volume here so they still see one shared store, same as GCS did --
+      # CUBESTORE_DATA_DIR below is unrelated: that's each node's own local
+      # scratch space, unchanged from before.
+      CUBESTORE_REMOTE_DIR: /cube/remote
       CUBESTORE_DATA_DIR: /cube/data
     volumes:
-      - ../.secrets/cubestore-gcs-runtime.json:/cube/conf/secrets/cubestore-gcs-runtime.json:ro
+      - cubestore-remote:/cube/remote
       - cubestore-router-data:/cube/data
     networks:
       - crypto-tracker-net
@@ -151,11 +160,10 @@ services:
       CUBESTORE_SERVER_NAME: cubestore-worker-1:9001
       CUBESTORE_WORKER_PORT: "9001"
       CUBESTORE_META_ADDR: cubestore-router:9999
-      CUBESTORE_GCS_BUCKET: gcp-crypto-tracker-cubestore
-      CUBESTORE_GCP_KEY_FILE: /cube/conf/secrets/cubestore-gcs-runtime.json
+      CUBESTORE_REMOTE_DIR: /cube/remote
       CUBESTORE_DATA_DIR: /cube/data
     volumes:
-      - ../.secrets/cubestore-gcs-runtime.json:/cube/conf/secrets/cubestore-gcs-runtime.json:ro
+      - cubestore-remote:/cube/remote
       - cubestore-worker-1-data:/cube/data
     networks:
       - crypto-tracker-net
@@ -174,11 +182,10 @@ services:
       CUBESTORE_SERVER_NAME: cubestore-worker-2:9001
       CUBESTORE_WORKER_PORT: "9001"
       CUBESTORE_META_ADDR: cubestore-router:9999
-      CUBESTORE_GCS_BUCKET: gcp-crypto-tracker-cubestore
-      CUBESTORE_GCP_KEY_FILE: /cube/conf/secrets/cubestore-gcs-runtime.json
+      CUBESTORE_REMOTE_DIR: /cube/remote
       CUBESTORE_DATA_DIR: /cube/data
     volumes:
-      - ../.secrets/cubestore-gcs-runtime.json:/cube/conf/secrets/cubestore-gcs-runtime.json:ro
+      - cubestore-remote:/cube/remote
       - cubestore-worker-2-data:/cube/data
     networks:
       - crypto-tracker-net
@@ -191,6 +198,7 @@ services:
           cpus: "0.5"
 
 volumes:
+  cubestore-remote:
   cubestore-router-data:
   cubestore-worker-1-data:
   cubestore-worker-2-data:

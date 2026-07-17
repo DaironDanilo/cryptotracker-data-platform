@@ -1,0 +1,60 @@
+name: Deploy coingecko-ingest-job
+
+# One-time/manual historical backfill -- Cloud Scheduler never triggers this
+# job (see recurring/README.md and the root README's phase table). Still
+# deploys on every code change so a manual `gcloud run jobs execute` always
+# runs the latest source, even though invocation itself stays manual-only.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "migration/coingecko-ingest-job/**"
+      - ".github/workflows/deploy-coingecko-ingest-job.yml"
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: deploy-coingecko-ingest-job
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker us-central1-docker.pkg.dev --quiet
+
+      # Multi-stage Dockerfile (Gradle/Kotlin build via the project's own
+      # ./gradlew wrapper -> slim JRE runtime), built plainly on the runner
+      # -- not `gcloud run jobs deploy --source`, which always invokes
+      # Cloud Build regardless of whether a Dockerfile is present.
+      - name: Build and push image
+        working-directory: migration/coingecko-ingest-job
+        run: |
+          IMAGE="us-central1-docker.pkg.dev/gcp-crypto-tracker/cloud-run-source-deploy/coingecko-ingest-job:${{ github.sha }}"
+          docker build -t "$IMAGE" .
+          docker push "$IMAGE"
+          echo "IMAGE=$IMAGE" >> "$GITHUB_ENV"
+
+      - name: Deploy to Cloud Run Job
+        run: |
+          gcloud run jobs deploy coingecko-ingest-job \
+            --image="$IMAGE" \
+            --region=us-central1 --project=gcp-crypto-tracker \
+            --service-account=coingecko-job-runtime@gcp-crypto-tracker.iam.gserviceaccount.com \
+            --set-secrets=COINGECKO_API_KEY=coingecko-api-key:latest \
+            --set-env-vars=TARGET_TABLE=market_cap_history_temp \
+            --memory=512Mi --cpu=1 --task-timeout=14400s --max-retries=0 \
+            --quiet

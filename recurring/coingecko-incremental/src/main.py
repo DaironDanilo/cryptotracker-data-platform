@@ -11,31 +11,46 @@ does not write to BigQuery -- BigQuery holds historical data for the chart
 (fed by the Binance job and the one-time backfills); the custom backend's
 REST endpoints for the coin list and markets tab read Postgres directly.
 
-Steps:
+Split into two cadences within the same hourly run, NOT two separate jobs,
+because of CoinGecko's own request cost asymmetry: /coins/markets is one
+call regardless of coin count, but /coins/{id}/tickers is one call PER coin
+-- at 150 tracked coins that's ~150 calls, which alone would exhaust the
+Demo tier's entire 10,000/month quota in under 3 days if fetched every
+hour (confirmed: this is what actually happened -- 57 hourly runs in ~2.5
+days burned ~8,600 calls). Exchange listings don't meaningfully change
+hour to hour, unlike price/market-cap, so only the cheap call needs to run
+every hour:
   1. GET /coins/markets (paginated) for the top N coins by market cap --
-     this single call provides id/symbol/name/market_cap_rank/
-     market_cap/price_change_percentage_24h, so no separate call is needed
-     for those fields.
-  2. Upsert `coins` (coin_id, symbol, name) from that response, keeping the
+     EVERY run. Provides id/symbol/name/market_cap_rank/market_cap/
+     price_change_percentage_24h in one call.
+  2. Upsert `coins` (coin_id, symbol, name) -- EVERY run, keeping the
      master list current as new coins enter/leave the top N. binance_symbol
      is preserved as-is (re-cross-referencing against Binance's
      exchangeInfo is coin-registry/src/seed_coins.py's job, not this one's).
   3. Upsert `coin_snapshots` (market_cap_usd, rank, change_percent_24h) --
-     explicitly does not touch price_usd/price_source.
-  4. GET /coins/{id}/tickers per coin, upsert into `markets`. `rank` there
-     is computed in this job (ROW_NUMBER() OVER (PARTITION BY coin_id ORDER
-     BY volume_usd_24h DESC) equivalent), not in BigQuery/SQL.
+     EVERY run. Explicitly does not touch price_usd/price_source.
+  4. GET /coins/{id}/tickers per coin, upsert into `markets` -- ONLY on the
+     hour matching MARKETS_REFRESH_HOUR_UTC (once/day). `rank` there is
+     computed in this job (ROW_NUMBER() OVER (PARTITION BY coin_id ORDER BY
+     volume_usd_24h DESC) equivalent), not in BigQuery/SQL.
+
+At 150 coins this keeps monthly usage to roughly 24*30 (step 1, every run)
++ 150*30 (step 4, once/day) =~ 5,220 calls/month -- about half the 10,000
+Demo-tier quota, leaving headroom.
 
 Self-throttled to stay under the free-tier Demo rate limit; see
 RateLimiter below.
 
 Env vars:
-  DATABASE_URL       required, Supabase Postgres connection string
-  COINGECKO_API_KEY   optional but strongly recommended (anonymous tier is
-                        far stricter than the documented Demo tier's ~100
-                        requests/minute, ~10,000/month)
-  TOP_N_COINS         optional, default 150
-  REQUESTS_PER_MINUTE  optional, default 40
+  DATABASE_URL             required, Supabase Postgres connection string
+  COINGECKO_API_KEY         optional but strongly recommended (anonymous
+                              tier is far stricter than the documented Demo
+                              tier's ~100 requests/minute, ~10,000/month)
+  TOP_N_COINS               optional, default 150
+  REQUESTS_PER_MINUTE        optional, default 40
+  MARKETS_REFRESH_HOUR_UTC   optional, default 0 -- the one hour per day
+                              (UTC, matching this job's own hourly Cloud
+                              Scheduler trigger) that step 4 runs on
 """
 from __future__ import annotations
 
@@ -216,6 +231,7 @@ def main() -> None:
     api_key = env("COINGECKO_API_KEY")
     top_n = int(env("TOP_N_COINS", "150"))
     requests_per_minute = int(env("REQUESTS_PER_MINUTE", "40"))
+    markets_refresh_hour = int(env("MARKETS_REFRESH_HOUR_UTC", "0"))
 
     limiter = RateLimiter(requests_per_minute)
     now = datetime.now(timezone.utc)
@@ -241,6 +257,14 @@ def main() -> None:
         for m in markets:
             upsert_coin_snapshot_market_data(conn, m, now, m["id"] in binance_tradeable)
         print(f"upserted coins + coin_snapshots market data for {len(markets)} coins")
+
+        if now.hour != markets_refresh_hour:
+            print(
+                f"skipping markets/tickers refresh (current UTC hour {now.hour} != "
+                f"MARKETS_REFRESH_HOUR_UTC {markets_refresh_hour}) -- runs once/day, not hourly, "
+                f"to stay within CoinGecko's Demo-tier monthly quota"
+            )
+            return
 
         total_market_rows = 0
         failed = 0

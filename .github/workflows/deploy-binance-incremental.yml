@@ -1,0 +1,64 @@
+name: Deploy binance-incremental-job
+
+# Path-scoped: only runs when this job's own source (or this workflow file)
+# changes on main -- the other 5 deployables in this repo have their own
+# independent workflow files, each scoped the same way. Deliberately NOT
+# a single shared workflow with a build matrix: these are unrelated
+# deployables (different languages, different Cloud Run resources), so
+# there's no shared logic worth factoring out, and independent files keep
+# each one's blast radius obvious.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "recurring/binance-incremental/**"
+      - ".github/workflows/deploy-binance-incremental.yml"
+
+permissions:
+  contents: read
+  id-token: write # required for Workload Identity Federation -- no stored key
+
+concurrency:
+  group: deploy-binance-incremental-job
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker us-central1-docker.pkg.dev --quiet
+
+      # Plain docker build/push on the (free, for public repos) GitHub-hosted
+      # runner -- deliberately NOT `gcloud run jobs deploy --source`, which
+      # always routes through Cloud Build. Keeping build compute off GCP
+      # entirely matches how every deploy in this repo has been done by hand
+      # all along.
+      - name: Build and push image
+        working-directory: recurring/binance-incremental
+        run: |
+          IMAGE="us-central1-docker.pkg.dev/gcp-crypto-tracker/cloud-run-source-deploy/binance-incremental-job:${{ github.sha }}"
+          docker build -t "$IMAGE" .
+          docker push "$IMAGE"
+          echo "IMAGE=$IMAGE" >> "$GITHUB_ENV"
+
+      - name: Deploy to Cloud Run Job
+        run: |
+          gcloud run jobs deploy binance-incremental-job \
+            --image="$IMAGE" \
+            --region=us-central1 --project=gcp-crypto-tracker \
+            --service-account=binance-incremental-runtime@gcp-crypto-tracker.iam.gserviceaccount.com \
+            --set-secrets=DATABASE_URL=supabase-database-url:latest \
+            --set-env-vars=GCP_PROJECT_ID=gcp-crypto-tracker,BQ_DATASET=bronze \
+            --memory=512Mi --cpu=1 --task-timeout=280s --max-retries=0 \
+            --quiet

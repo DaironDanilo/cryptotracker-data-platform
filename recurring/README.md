@@ -13,7 +13,7 @@ applied there via `DATABASE_URL` pointed at Supabase).
 | Job | Schedule | Reads from | Writes to | Purpose |
 |---|---|---|---|---|
 | `binance-incremental-job` | every 5 min (`*/5 * * * *`) | `data-api.binance.vision` | BigQuery `bronze_candles`, Postgres `coin_snapshots.price_usd` | Sole price-writing path (no WebSocket worker exists yet). Watermark-driven: reads `ingestion_watermarks` to know where to resume. |
-| `coingecko-incremental-job` | hourly (`0 * * * *`) | CoinGecko REST | Postgres `coins`, `coin_snapshots` (market_cap_usd/rank/change_percent_24h), `markets` | Live snapshot only -- does not write to BigQuery. Never touches `price_usd`/`price_source` for Binance-tradeable coins (that's the Binance job's job); *is* the sole price source for coins with no Binance USDT pair. |
+| `coingecko-incremental-job` | hourly (`0 * * * *`) | CoinGecko REST | Postgres `coins`, `coin_snapshots` (market_cap_usd/rank/change_percent_24h) every run; `markets` once/day only | Live snapshot only -- does not write to BigQuery. Never touches `price_usd`/`price_source` for Binance-tradeable coins (that's the Binance job's job); *is* the sole price source for coins with no Binance USDT pair. `markets` refresh (`/coins/{id}/tickers`, ~1 call/coin) is gated to once/day via `MARKETS_REFRESH_HOUR_UTC` -- run hourly like the rest it would alone exhaust CoinGecko's Demo-tier 10,000/month quota in under 3 days (confirmed: this happened on 2026-07-17). |
 | `candle-hourly-sync-job` | every 5 min (`*/5 * * * *`) | BigQuery `gold.hourly_candle_metrics` (Dataform-managed) | Postgres `candle_rollups_hourly` | Lambda-architecture speed layer -- lets `:server`'s history endpoint serve 1D/5D chart ranges from a plain indexed Postgres query instead of BigQuery/Cube on every request. |
 | `candle-daily-sync-job` | once daily (`15 0 * * *`) | BigQuery `gold.daily_candle_metrics` (Dataform-managed) | Postgres `candle_rollups_daily` | Lambda-architecture batch layer -- serves 1M/6M/YTD/1Y chart ranges; `:server` merges in a synthetic "today" candle from `candle_rollups_hourly` at read time to stay fresh between daily runs. |
 
@@ -110,6 +110,27 @@ root-level `main.py`, and the process name must literally be `web`, not
     --http-method=POST \
     --oauth-service-account-email=cloud-scheduler-job-invoker@gcp-crypto-tracker.iam.gserviceaccount.com
   ```
+
+## Continuous deployment
+
+Each job (plus the two `migration/` deployables) has its own GitHub Actions
+workflow in `.github/workflows/`, path-scoped to that job's directory only
+-- pushing a change to `recurring/binance-incremental/` triggers *only*
+`deploy-binance-incremental.yml`, the other 5 don't run. Deliberately 6
+independent workflow files instead of one shared workflow with a build
+matrix: these deployables share no code (mixed Python/Kotlin, different
+Cloud Run resources), so there's nothing to factor out, and independent
+files keep each one's blast radius obvious.
+
+Auth is Workload Identity Federation (keyless, no service-account key
+stored in GitHub), scoped to this exact repo and the `main` branch only.
+Each workflow builds its own Dockerfile plainly on the GitHub-hosted
+runner (free for public repos) and pushes straight to Artifact Registry --
+deliberately NOT `gcloud run jobs deploy --source`, which always routes
+through Cloud Build regardless of whether a Dockerfile exists. Images are
+tagged with the git SHA, not `latest`, for exact traceability and easy
+rollback -- compatible with the keep-3-most-recent-per-package Artifact
+Registry cleanup policy already applied to this project.
 
 ## Manually triggering a job to verify it works
 
