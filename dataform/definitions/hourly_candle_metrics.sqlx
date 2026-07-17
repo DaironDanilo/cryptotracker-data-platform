@@ -1,0 +1,43 @@
+-- Gold layer: hourly OHLCV rollup. Since the underlying interval is already
+-- 1h, this is mostly a pass-through of silver_candles today -- but it exists
+-- as its own gold table (rather than pointing the chatbot straight at
+-- silver_candles) so that (a) the chatbot has one stable "metrics" shape
+-- regardless of what raw interval bronze_candles happens to ingest at, and
+-- (b) it's the natural home for additional per-hour derived metrics later
+-- (e.g. rolling volatility) without touching the silver layer's contract.
+--
+-- Same two-stage-aggregation / MV-chaining-unsupported reasoning as
+-- daily_candle_metrics.sqlx applies here -- see that file's header.
+--
+-- Shorter 6-hour lookback than the daily table's 3 days, since revisions to
+-- "the current hour" resolve within a few 5-minute binance-incremental-job
+-- cycles, not days.
+config {
+  type: "incremental",
+  schema: "gold",
+  name: "hourly_candle_metrics",
+  uniqueKey: ["coin_id", "`interval`", "hour"],
+  bigquery: {
+    partitionBy: "DATE(hour)",
+    clusterBy: ["coin_id", "`interval`"]
+  }
+}
+
+SELECT
+  coin_id,
+  `interval`,
+  TIMESTAMP_TRUNC(open_time, HOUR) AS hour,
+  ANY_VALUE(open HAVING MIN open_time) AS open,
+  ANY_VALUE(close HAVING MAX open_time) AS close,
+  MAX(high) AS high,
+  MIN(low) AS low,
+  SUM(volume) AS volume,
+  SUM(quote_volume) AS quote_volume,
+  SUM(trade_count) AS trade_count,
+  COUNT(*) AS candle_count,
+  MAX(latest_publish_time) AS latest_publish_time
+FROM `gcp-crypto-tracker.silver.silver_candles`
+WHERE ${when(incremental(),
+  `open_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 6 HOUR)`,
+  `TRUE`)}
+GROUP BY coin_id, `interval`, hour

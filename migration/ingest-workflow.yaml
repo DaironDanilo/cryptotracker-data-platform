@@ -1,0 +1,131 @@
+retryable_error:
+  params: [e]
+  steps:
+    - check:
+        switch:
+          - condition: ${"HttpError" in e.tags and e.code in [429, 500, 502, 503, 504]}
+            return: true
+    - fallback:
+        return: false
+
+main:
+  params: [args]
+  steps:
+    - init:
+        assign:
+          - project_id: "gcp-crypto-tracker"
+          - region: "us-central1"
+          - binance_base_url: "https://binance-ingest-560504442386.us-central1.run.app"
+          - binance_limit_coins: ${default(map.get(args, "binance_limit_coins"), 0)}
+          - coingecko_limit_coins: ${default(map.get(args, "coingecko_limit_coins"), 0)}
+          - binance_result: {}
+          - coingecko_result: {}
+    - run_branches:
+        parallel:
+          shared: [binance_result, coingecko_result]
+          branches:
+            - binance_branch:
+                steps:
+                  - list_coins:
+                      call: http.get
+                      args:
+                        url: ${binance_base_url + "/coins"}
+                        auth:
+                          type: OIDC
+                      result: coins_response
+                  - slice_coins:
+                      switch:
+                        - condition: ${binance_limit_coins > 0}
+                          steps:
+                            - init_slice:
+                                assign:
+                                  - coin_list: []
+                                  - slice_idx: 0
+                            - build_slice:
+                                for:
+                                  value: c
+                                  in: ${coins_response.body}
+                                  steps:
+                                    - maybe_add:
+                                        switch:
+                                          - condition: ${slice_idx < binance_limit_coins}
+                                            steps:
+                                              - add_it:
+                                                  assign:
+                                                    - coin_list: ${list.concat(coin_list, c)}
+                                                    - slice_idx: ${slice_idx + 1}
+                        - condition: true
+                          assign:
+                            - coin_list: ${coins_response.body}
+                  - download_all:
+                      parallel:
+                        concurrency_limit: 20
+                        for:
+                          value: coin
+                          in: ${coin_list}
+                          steps:
+                            - download_one:
+                                try:
+                                  call: http.post
+                                  args:
+                                    url: ${binance_base_url + "/download"}
+                                    auth:
+                                      type: OIDC
+                                    timeout: 1260
+                                    body:
+                                      coin_id: ${coin.coin_id}
+                                      binance_symbol: ${coin.binance_symbol}
+                                  result: download_result
+                                retry:
+                                  predicate: ${retryable_error}
+                                  max_retries: 3
+                                  backoff:
+                                    initial_delay: 2
+                                    max_delay: 30
+                                    multiplier: 2
+                  - load_bronze:
+                      call: googleapis.bigquery.v2.jobs.query
+                      args:
+                        projectId: ${project_id}
+                        body:
+                          useLegacySql: false
+                          query: >
+                            CALL `gcp-crypto-tracker.bronze.load_binance_ndjson`(
+                              'gs://gcp-crypto-tracker-raw-binance/*',
+                              'bronze_candles'
+                            )
+                      result: load_bronze_result
+                  - set_binance_result:
+                      assign:
+                        - binance_result:
+                            coins_processed: ${len(coin_list)}
+                            load_job: ${load_bronze_result}
+            - coingecko_branch:
+                steps:
+                  - build_overrides:
+                      switch:
+                        - condition: ${coingecko_limit_coins > 0}
+                          assign:
+                            - env_overrides:
+                                - name: "LIMIT_COINS"
+                                  value: ${string(coingecko_limit_coins)}
+                        - condition: true
+                          assign:
+                            - env_overrides: []
+                  - run_job:
+                      call: googleapis.run.v2.projects.locations.jobs.run
+                      args:
+                        name: ${"projects/" + project_id + "/locations/" + region + "/jobs/coingecko-ingest-job"}
+                        body:
+                          overrides:
+                            containerOverrides:
+                              - env: ${env_overrides}
+                            timeout: "3600s"
+                      result: coingecko_run_result
+                  - set_coingecko_result:
+                      assign:
+                        - coingecko_result: ${coingecko_run_result}
+    - finish:
+        return:
+          binance: ${binance_result}
+          coingecko: ${coingecko_result}

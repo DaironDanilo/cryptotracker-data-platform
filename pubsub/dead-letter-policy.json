@@ -1,0 +1,32 @@
+{
+  "displayName": "candle-events: messages landing in a dead-letter topic",
+  "documentation": {
+    "content": "Any message reaching a candle-events-*-dlq topic means a consumer failed to process it 5 times in a row. This is never expected in normal operation -- check the consumer for the named source subscription (resource.label.subscription_id in the incident) and inspect the dead-letter topic's messages.",
+    "mimeType": "text/markdown"
+  },
+  "combiner": "OR",
+  "conditions": [
+    {
+      "displayName": "dead_letter_message_count > 0 in 5m, any candle-events-* subscription",
+      "conditionThreshold": {
+        "filter": "resource.type=\"pubsub_subscription\" AND resource.label.subscription_id=one_of(\"candle-events-bigquery\",\"candle-events-postgres\",\"candle-events-redis\") AND metric.type=\"pubsub.googleapis.com/subscription/dead_letter_message_count\"",
+        "comparison": "COMPARISON_GT",
+        "thresholdValue": 0,
+        "duration": "0s",
+        "aggregations": [
+          {
+            "alignmentPeriod": "300s",
+            "perSeriesAligner": "ALIGN_SUM",
+            "crossSeriesReducer": "REDUCE_NONE",
+            "groupByFields": ["resource.label.subscription_id"]
+          }
+        ],
+        "trigger": { "count": 1 }
+      }
+    }
+  ],
+  "alertStrategy": {
+    "autoClose": "1800s"
+  },
+  "enabled": true
+}

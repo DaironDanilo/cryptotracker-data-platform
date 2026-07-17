@@ -8,3 +8,7 @@ __pycache__/
 build/
 *.iml
 .idea/
+.secrets/
+.progress.sqlite3
+.kotlin/
+*.log

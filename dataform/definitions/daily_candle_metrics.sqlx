@@ -1,0 +1,47 @@
+-- Gold layer: daily OHLCV rollup, for the future chatbot's daily-granularity
+-- questions ("what was bitcoin's average daily volume last month").
+--
+-- Why this lives in Dataform and not a BigQuery materialized view: it's a
+-- two-stage aggregation (dedupe bronze_candles' possibly-multiple-versions-
+-- per-candle down to one row per (coin_id, interval, open_time), THEN roll
+-- those up across a day) and BigQuery materialized views can only reference
+-- native tables, not other views or materialized views -- confirmed
+-- empirically while building this. Reading from
+-- `silver.silver_candles` (already deduped by its own MV) means this step
+-- only needs one dimension of aggregation, not two, so it's still plain
+-- GROUP BY / HAVING MIN/MAX -- no window functions needed.
+--
+-- Incremental with a 3-day lookback: re-processes the last 3 days on every
+-- run (not just strictly-new rows), since "today" (and sometimes yesterday,
+-- right after local-midnight boundaries) can still have its candles revised
+-- by binance-incremental-job. uniqueKey makes this a MERGE, so re-processing
+-- a day updates it in place rather than duplicating rows.
+config {
+  type: "incremental",
+  schema: "gold",
+  name: "daily_candle_metrics",
+  uniqueKey: ["coin_id", "`interval`", "day"],
+  bigquery: {
+    partitionBy: "TIMESTAMP_TRUNC(day, DAY)",
+    clusterBy: ["coin_id", "`interval`"]
+  }
+}
+
+SELECT
+  coin_id,
+  `interval`,
+  TIMESTAMP_TRUNC(open_time, DAY) AS day,
+  ANY_VALUE(open HAVING MIN open_time) AS open,
+  ANY_VALUE(close HAVING MAX open_time) AS close,
+  MAX(high) AS high,
+  MIN(low) AS low,
+  SUM(volume) AS volume,
+  SUM(quote_volume) AS quote_volume,
+  SUM(trade_count) AS trade_count,
+  COUNT(*) AS candle_count,
+  MAX(latest_publish_time) AS latest_publish_time
+FROM `gcp-crypto-tracker.silver.silver_candles`
+WHERE ${when(incremental(),
+  `DATE(open_time) >= DATE_SUB(CURRENT_DATE(), INTERVAL 3 DAY)`,
+  `TRUE`)}
+GROUP BY coin_id, `interval`, day

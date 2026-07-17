@@ -1,0 +1,14 @@
+[versions]
+kotlin = "2.3.21"
+coroutines = "1.9.0"
+bigquery = "2.42.0"
+gson = "2.11.0"
+
+[libraries]
+kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
+google-cloud-bigquery = { module = "com.google.cloud:google-cloud-bigquery", version.ref = "bigquery" }
+gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
+
+[plugins]
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+shadow = { id = "com.gradleup.shadow", version = "8.3.5" }

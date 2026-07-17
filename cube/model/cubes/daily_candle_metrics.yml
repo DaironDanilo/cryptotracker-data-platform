@@ -1,0 +1,99 @@
+# Gold layer daily OHLCV rollup -- built by dataform/ (see that project's
+# definitions/daily_candle_metrics.sqlx for why this exists as its own table
+# rather than a materialized view: two-stage aggregation, which BigQuery MVs
+# can't express since they can only reference native tables, not other
+# views/MVs).
+cubes:
+  - name: daily_candle_metrics
+    sql_table: gold.daily_candle_metrics
+
+    dimensions:
+      - name: coin_id
+        sql: coin_id
+        type: string
+        primary_key: true
+        public: true
+
+      - name: interval
+        sql: "{CUBE}.`interval`"
+        type: string
+
+      - name: day
+        # Native TIMESTAMP in BigQuery (dataform/definitions/daily_candle_metrics.sqlx
+        # uses TIMESTAMP_TRUNC, not DATE()) -- deliberately not a DATE column.
+        # Cube's auto-generated range queries (e.g. the min/max scan used to
+        # determine pre-aggregation partition bounds) reference this column
+        # directly, bypassing any CAST expressed here, so the column itself
+        # must already be the type Cube expects rather than relying on this
+        # dimension's `sql:` to coerce it -- confirmed empirically (a DATE
+        # column here produced "Could not cast literal 'UTC' to type TIME"
+        # from BigQuery on those internal queries).
+        sql: day
+        type: time
+        primary_key: true
+        public: true
+
+    measures:
+      - name: count
+        type: count
+
+      - name: open
+        sql: open
+        type: avg
+        description: "Single-day lookups only -- see candles cube's same caveat."
+
+      - name: close
+        sql: close
+        type: avg
+
+      - name: high
+        sql: high
+        type: max
+
+      - name: low
+        sql: low
+        type: min
+
+      - name: volume
+        sql: volume
+        type: sum
+
+      - name: quote_volume
+        sql: quote_volume
+        type: sum
+
+      - name: trade_count
+        sql: trade_count
+        type: sum
+
+      - name: candle_count
+        sql: candle_count
+        type: sum
+        description: "How many raw candles were rolled into this day -- useful to spot partial/incomplete days."
+
+    # Small table (one row per coin per day), so a single, coarse
+    # pre-aggregation covering everything is enough -- this is exactly the
+    # kind of thing Cube Store actually benefits from caching for a chatbot
+    # hitting it repeatedly with varying date ranges.
+    pre_aggregations:
+      - name: daily_metrics_by_coin
+        measures:
+          - CUBE.count
+          - CUBE.high
+          - CUBE.low
+          - CUBE.volume
+          - CUBE.quote_volume
+          - CUBE.trade_count
+          - CUBE.candle_count
+        dimensions:
+          - CUBE.coin_id
+          - CUBE.interval
+        time_dimension: CUBE.day
+        granularity: day
+        partition_granularity: year
+        refresh_key:
+          every: 15 minutes
+        indexes:
+          - name: by_coin
+            columns:
+              - coin_id

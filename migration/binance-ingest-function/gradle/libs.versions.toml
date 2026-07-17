@@ -1,0 +1,17 @@
+[versions]
+kotlin = "2.3.21"
+coroutines = "1.11.0"
+gson = "2.14.0"
+gcp-libraries-bom = "26.85.0"
+shadow = "9.5.1"
+
+[libraries]
+kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
+gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
+gcp-libraries-bom = { module = "com.google.cloud:libraries-bom", version.ref = "gcp-libraries-bom" }
+google-cloud-bigquery = { module = "com.google.cloud:google-cloud-bigquery" }
+google-cloud-storage = { module = "com.google.cloud:google-cloud-storage" }
+
+[plugins]
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+shadow = { id = "com.gradleup.shadow", version.ref = "shadow" }

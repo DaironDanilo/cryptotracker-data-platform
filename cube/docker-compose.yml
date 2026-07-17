@@ -1,0 +1,196 @@
+networks:
+  # External network for a future same-host consumer (e.g. an
+  # analytics/chatbot service) to reach Cube Core's REST API by service name
+  # (http://cube-api:4000) without going through the host network stack --
+  # see README.md's "Networking" section. Nothing joins this network today;
+  # the app's :server backend was originally meant to (hence "future
+  # backend" in older notes) but was moved to Cloud Run and reads Postgres
+  # directly instead, never touching Cube.
+  crypto-tracker-net:
+    external: true
+
+services:
+  cube-api:
+    image: cubejs/cube:latest
+    restart: unless-stopped
+    environment:
+      CUBEJS_DB_TYPE: bigquery
+      CUBEJS_DB_BQ_PROJECT_ID: gcp-crypto-tracker
+      CUBEJS_DB_BQ_KEY_FILE: /cube/conf/secrets/cube-core-bigquery-runtime.json
+      CUBEJS_DB_BQ_LOCATION: US
+      CUBEJS_CUBESTORE_HOST: cubestore-router
+      CUBEJS_CUBESTORE_PORT: "3030"
+      CUBEJS_API_SECRET: ${CUBEJS_API_SECRET}
+      CUBEJS_DEV_MODE: "false"
+    volumes:
+      - ./model:/cube/conf/model:ro
+      - ../.secrets/cube-core-bigquery-runtime.json:/cube/conf/secrets/cube-core-bigquery-runtime.json:ro
+    ports:
+      # Exposed on the LAN (http://YOUR_SERVER_IP:4000) at the user's
+      # request, for direct browser access from another machine on the
+      # home network. Was 127.0.0.1-only; there's still no auth/access
+      # control in front of this beyond CUBEJS_API_SECRET, so this is only
+      # appropriate because it's a trusted home LAN, not a public network.
+      - "0.0.0.0:4000:4000"
+    networks:
+      - crypto-tracker-net
+    depends_on:
+      - cubestore-router
+    deploy:
+      resources:
+        limits:
+          memory: 768M
+          cpus: "0.5"
+
+  # Dev-mode instance for local/interactive use (Developer Playground UI).
+  # Deliberately NOT a full duplicate stack: it points at the SAME
+  # cubestore-router as cube-api, since both instances share the identical
+  # data model (./model, same bind mount) and would build/cache identical
+  # pre-aggregations anyway -- no reason to double the Cube Store footprint
+  # for that. It also does NOT run CUBEJS_REFRESH_WORKER; the existing
+  # refresh worker below already keeps the shared Cube Store fresh for both
+  # API instances, running a second one would just duplicate that work.
+  #
+  # CUBEJS_DEV_MODE=true disables authentication and role-based access
+  # control entirely (confirmed via Cube's own docs) -- there is currently
+  # NOTHING gating access to this instance beyond network reachability. Port
+  # 4001 is bound to the LAN the same way prod's 4000 is, which means
+  # anything on your home network can query it with zero auth. Acceptable
+  # only because this is a trusted home LAN; do not do this on any network
+  # you don't fully trust, and reconsider if this box ever gets exposed
+  # beyond the LAN (e.g. port forwarding, VPN with untrusted peers).
+  cube-api-dev:
+    image: cubejs/cube:latest
+    restart: unless-stopped
+    environment:
+      CUBEJS_DB_TYPE: bigquery
+      CUBEJS_DB_BQ_PROJECT_ID: gcp-crypto-tracker
+      CUBEJS_DB_BQ_KEY_FILE: /cube/conf/secrets/cube-core-bigquery-runtime.json
+      CUBEJS_DB_BQ_LOCATION: US
+      CUBEJS_CUBESTORE_HOST: cubestore-router
+      CUBEJS_CUBESTORE_PORT: "3030"
+      CUBEJS_API_SECRET: ${CUBEJS_API_SECRET}
+      CUBEJS_DEV_MODE: "true"
+    volumes:
+      - ./model:/cube/conf/model:ro
+      - ../.secrets/cube-core-bigquery-runtime.json:/cube/conf/secrets/cube-core-bigquery-runtime.json:ro
+    ports:
+      - "0.0.0.0:4001:4000"
+    networks:
+      - crypto-tracker-net
+    depends_on:
+      - cubestore-router
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "0.5"
+
+  cube-refresh-worker:
+    image: cubejs/cube:latest
+    restart: unless-stopped
+    environment:
+      CUBEJS_DB_TYPE: bigquery
+      CUBEJS_DB_BQ_PROJECT_ID: gcp-crypto-tracker
+      CUBEJS_DB_BQ_KEY_FILE: /cube/conf/secrets/cube-core-bigquery-runtime.json
+      CUBEJS_DB_BQ_LOCATION: US
+      CUBEJS_CUBESTORE_HOST: cubestore-router
+      CUBEJS_CUBESTORE_PORT: "3030"
+      CUBEJS_API_SECRET: ${CUBEJS_API_SECRET}
+      CUBEJS_REFRESH_WORKER: "true"
+    volumes:
+      - ./model:/cube/conf/model:ro
+      - ../.secrets/cube-core-bigquery-runtime.json:/cube/conf/secrets/cube-core-bigquery-runtime.json:ro
+    networks:
+      - crypto-tracker-net
+    depends_on:
+      - cubestore-router
+    deploy:
+      resources:
+        limits:
+          # Was 512M, then 1024M -- both OOM-crashed repeatedly building the
+          # candles pre-aggregation's full multi-year history (see
+          # candles.yml's build_range_start for the other half of this fix:
+          # capping how far back it actually builds). Bumped again after
+          # adding open/close to the pre-agg's measures (needed so the
+          # history endpoint can hit Cube Store instead of querying
+          # BigQuery directly) made the rebuild OOM at 1024M too. The host
+          # has 10GB total with ~8GB free, so this has headroom.
+          memory: 2560M
+          cpus: "0.5"
+
+  cubestore-router:
+    image: cubejs/cubestore:latest
+    restart: unless-stopped
+    environment:
+      CUBESTORE_SERVER_NAME: cubestore-router:9999
+      CUBESTORE_META_PORT: "9999"
+      CUBESTORE_WORKERS: "cubestore-worker-1:9001,cubestore-worker-2:9001"
+      # GCS remote storage for the pre-aggregation cache -- NOT local disk.
+      # All Cube Store nodes (router + every worker) need these same three
+      # variables; the bucket is the durable store, CUBESTORE_DATA_DIR below
+      # is just each node's local working-copy cache of it.
+      CUBESTORE_GCS_BUCKET: gcp-crypto-tracker-cubestore
+      CUBESTORE_GCP_KEY_FILE: /cube/conf/secrets/cubestore-gcs-runtime.json
+      CUBESTORE_DATA_DIR: /cube/data
+    volumes:
+      - ../.secrets/cubestore-gcs-runtime.json:/cube/conf/secrets/cubestore-gcs-runtime.json:ro
+      - cubestore-router-data:/cube/data
+    networks:
+      - crypto-tracker-net
+    deploy:
+      resources:
+        limits:
+          memory: 1024M
+          cpus: "0.5"
+
+  cubestore-worker-1:
+    image: cubejs/cubestore:latest
+    restart: unless-stopped
+    environment:
+      CUBESTORE_SERVER_NAME: cubestore-worker-1:9001
+      CUBESTORE_WORKER_PORT: "9001"
+      CUBESTORE_META_ADDR: cubestore-router:9999
+      CUBESTORE_GCS_BUCKET: gcp-crypto-tracker-cubestore
+      CUBESTORE_GCP_KEY_FILE: /cube/conf/secrets/cubestore-gcs-runtime.json
+      CUBESTORE_DATA_DIR: /cube/data
+    volumes:
+      - ../.secrets/cubestore-gcs-runtime.json:/cube/conf/secrets/cubestore-gcs-runtime.json:ro
+      - cubestore-worker-1-data:/cube/data
+    networks:
+      - crypto-tracker-net
+    depends_on:
+      - cubestore-router
+    deploy:
+      resources:
+        limits:
+          memory: 1024M
+          cpus: "0.5"
+
+  cubestore-worker-2:
+    image: cubejs/cubestore:latest
+    restart: unless-stopped
+    environment:
+      CUBESTORE_SERVER_NAME: cubestore-worker-2:9001
+      CUBESTORE_WORKER_PORT: "9001"
+      CUBESTORE_META_ADDR: cubestore-router:9999
+      CUBESTORE_GCS_BUCKET: gcp-crypto-tracker-cubestore
+      CUBESTORE_GCP_KEY_FILE: /cube/conf/secrets/cubestore-gcs-runtime.json
+      CUBESTORE_DATA_DIR: /cube/data
+    volumes:
+      - ../.secrets/cubestore-gcs-runtime.json:/cube/conf/secrets/cubestore-gcs-runtime.json:ro
+      - cubestore-worker-2-data:/cube/data
+    networks:
+      - crypto-tracker-net
+    depends_on:
+      - cubestore-router
+    deploy:
+      resources:
+        limits:
+          memory: 1024M
+          cpus: "0.5"
+
+volumes:
+  cubestore-router-data:
+  cubestore-worker-1-data:
+  cubestore-worker-2-data:

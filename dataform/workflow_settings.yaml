@@ -1,0 +1,4 @@
+defaultProject: gcp-crypto-tracker
+defaultLocation: US
+defaultDataset: gold
+dataformCoreVersion: 3.0.20

@@ -1,0 +1,32 @@
+{
+  "displayName": "candle-events: subscriber falling behind (oldest_unacked_message_age)",
+  "documentation": {
+    "content": "A rising oldest_unacked_message_age on any candle-events-* subscription means that subscription's consumer is stuck, crashed, or can't keep up. Check the consumer process/logs for the named subscription (resource.label.subscription_id in the incident).",
+    "mimeType": "text/markdown"
+  },
+  "combiner": "OR",
+  "conditions": [
+    {
+      "displayName": "oldest_unacked_message_age > 600s for 5m, any candle-events-* subscription",
+      "conditionThreshold": {
+        "filter": "resource.type=\"pubsub_subscription\" AND resource.label.subscription_id=one_of(\"candle-events-bigquery\",\"candle-events-postgres\",\"candle-events-redis\") AND metric.type=\"pubsub.googleapis.com/subscription/oldest_unacked_message_age\"",
+        "comparison": "COMPARISON_GT",
+        "thresholdValue": 600,
+        "duration": "300s",
+        "aggregations": [
+          {
+            "alignmentPeriod": "300s",
+            "perSeriesAligner": "ALIGN_MAX",
+            "crossSeriesReducer": "REDUCE_NONE",
+            "groupByFields": ["resource.label.subscription_id"]
+          }
+        ],
+        "trigger": { "count": 1 }
+      }
+    }
+  ],
+  "alertStrategy": {
+    "autoClose": "1800s"
+  },
+  "enabled": true
+}

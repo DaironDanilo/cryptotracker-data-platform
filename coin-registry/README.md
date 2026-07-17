@@ -7,14 +7,27 @@ since it's a one-shot schema + batch job, not a long-running JVM service.
 
 - **coins** — registry, one row per tracked coin (CoinGecko id as PK).
 - **coin_snapshots** — current/live state, one row per coin, NOT history.
-  Populated later by the Binance WS worker / reconciliation job (Phase 5/6),
-  not by the seed job in this phase.
+  Not populated by the seed job in this phase. Live: kept current by
+  `recurring/binance-incremental-job` (price_usd, every 5 min, for
+  Binance-tradeable coins) and `recurring/coingecko-incremental-job`
+  (market_cap_usd/rank/change_percent_24h, hourly, and price_usd for coins
+  with no Binance USDT pair) — see `recurring/README.md`. A WebSocket-worker
+  / reconciliation-job path was originally planned for this (Phase 5/6,
+  `ws-worker/`, `reconciliation-job/`) but is deferred and not yet built;
+  the REST-based recurring jobs above are the actual live price source
+  today.
 - **markets** — exchange-level pair listings for a "Markets" tab, keyed on
-  (coin_id, exchange_id, base_symbol, target_symbol).
+  (coin_id, exchange_id, base_symbol, target_symbol). Kept current by
+  `coingecko-incremental-job`.
 
 All price/volume columns are `numeric`, never float/double.
 
-See [`migrations/0001_init.sql`](migrations/0001_init.sql) for the full DDL.
+See [`migrations/`](migrations/) for the full DDL: `0001_init.sql` (this
+phase's schema above), `0002_recurring_etl.sql` (Phase 4 — adds
+`ingestion_watermarks`, extends the `price_source` check constraint for the
+live recurring jobs), and `0003_candle_rollups.sql` (Phase 8 — the
+`candle_rollups_hourly`/`candle_rollups_daily` Lambda-architecture tables
+the app's `:server` backend reads).
 
 ## Setup
 

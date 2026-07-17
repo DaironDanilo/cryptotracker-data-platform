@@ -25,7 +25,7 @@ def main() -> None:
         print("no .sql migration files found")
         return
 
-    with psycopg.connect(DATABASE_URL, autocommit=False) as conn:
+    with psycopg.connect(DATABASE_URL, autocommit=False, prepare_threshold=None) as conn:
         with conn.cursor() as cur:
             cur.execute(
                 """
