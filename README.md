@@ -11,44 +11,10 @@ not otherwise touch this repo or its GCP project.
 
 ## How it's wired up, end to end
 
-```
-                     ┌─ backfill/ (one-time, manual) ─┐
-                     │  binance-ohlcv, coingecko-market-cap
-                     └────────────────┬─────────────────┘
-                                       │
-  migration/ (one-time/manual)        ▼
-  binance-ingest (Cloud Run svc) ┐  bronze.bronze_candles
-  coingecko-ingest-job           ┤  bronze.market_cap_history
-  crypto-ingest-migration (Workflow, orchestrates both) ┘
-                                       ▲
-  recurring/ (scheduled, live) ────────┤
-  binance-incremental-job  (*/5 * * * *) ──► bronze.bronze_candles
-                                          └─► Postgres coin_snapshots.price_usd
-  coingecko-incremental-job (0 * * * *)  ──► Postgres coins/coin_snapshots/markets
-                                       │
-                                       ▼
-  dataform/ (Dataform-managed, scheduled every 15 min)
-  silver.silver_candles (dedup MV)
-       └─► gold.hourly_candle_metrics, gold.daily_candle_metrics
-                                       │
-                    ┌──────────────────┴──────────────────┐
-                    ▼                                       ▼
-  recurring/candle-hourly-sync-job (*/5 * * * *)   cube/ (semantic layer,
-  recurring/candle-daily-sync-job  (15 0 * * *)     BigQuery-backed, not on
-       └─► Postgres candle_rollups_hourly/_daily     the :server request path
-                    │                                — kept for a future
-                    ▼                                 analytics/chatbot use
-  :server (separate repo, Cloud Run) reads these       case)
-  directly for the app's chart history endpoint
-
-  pubsub/ (provisioned, zero live producers today — see pubsub/README.md)
-  candle-events topic + 3 subscriptions, monitoring, DLQs — groundwork for
-  airflow/, ws-worker/, postgres-subscriber/, redis-subscriber/,
-  reconciliation-job/, common/ (all still empty scaffolding)
-```
-
-A rendered, color-coded version of this diagram (live vs. manual vs. dormant
-components) is below, and also lives on its own in
+Two generations of ingestion feed this pipeline (see the callouts below),
+converging through BigQuery's medallion layers into the Postgres tables
+`:server` reads. The color-coded diagram below shows the full path — live
+vs. manual vs. dormant components — and also lives on its own in
 [`architecture-diagram.mmd`](architecture-diagram.mmd) —
 **[open it preloaded in the Mermaid Live Editor](https://mermaid.live/edit#pako:eNqNWAtPHDcQ_ivWRVEh3eWOBJTo1EZKIKJpVYUCUtTmKuT1zt25eO2N7YVcHv-949e-7kggUrDn8XlmPJ6Z5cuEqRImczJ5_Jic6E1t1ZWm7AY0OaWWknNB7VLpiiyap7PDIwKyzK3K8Rehmq25BWYbDQuJ6ufUWCB2zQ1ZcgE_GcKUtCCtIVxaRdbW1mY-nVagK8rLA8FvUVwRjWh4HrcHHuZMA0jyK3HsqWFrKBsBZUb-BiHUHTKUhNzyCqYVlQ0VGbmAEsm1VrfccOSWpGgsKdFsKu20hCVoDeVCLuQSEdiaakuuXi8kwR_TFCtN6zWBT_bDYvLmkwUtqSCvzt-axeTfIOR-Ci6pZIB0FHsdNuTizeWVE90l-Rs3DrHEMB5E0kEwkOxhjKzSnOFBN4JLMPsDhBWwGxVOOlFcnrnt9lkYNufTwAv03oUGFd_FKJEpCXHCS1iBsXj-4KySa7xDZ1UKifup-Cr6iFC40dSJTKMfeYD6pdDTlydCNSW5aCQxoG85gwE6qnrrByhMOX2kRpz8P1WMsJAyxnmv9I27P4RiPlGTdgvcw0jCw7Ay87rB3LYf9haTs5PLOVLqPILZkPa5pnd5dHMx2e9fK_Ixr0UXl0Rpw6LWgt16K_ZSbmowTUULAcMbTqopOC1UF5uKajQ1Z7R-EKIBKH9XhYsOQuQaVphjejN19GtHMgf1ZoiUHtL-d1MK06PRGq1C6HY9TQXBvdKMhKBfxseqyc-ku0o0yjwg42IM30qmXTzaRGMaKqwhVLRZ8mR6TJ6Ef9uvJur3U2wbYbZTf60aLTaXG8kcAJWlgDzQcoPEH55fUj5W96Sh9uExmY2Ud0W9-OjLzOqvBvQmBbuCkgrhIifoRjX2IWHVSn4Gl_BhNY-U62ChyUjIM9zX16EsbYZ57wqYawFoz2lcJntGT2elRInpUivvKNw6y9Hdig8rjuECWc6ksJpHSjJpeLwDdbLu9zzeUZS8rsBiEUUffJxH1A5mV3xrl86XTU0LaoCcK2NXGh6Sp_4pXTmL_GporJG0NmtlO4HrljSUDFEPcnE9FAieXighmtqDBee0J5jrwA4ZNcM822DgXa_15X1_nJX3wnhuQHmWV9iu17twdgWQNQWcaYWoCIrrtiKc4IacKA1YklwD5sxlKxaFvdiR9x8SZQQ516qM4DmtOdnDDl_uk_nRbDYbQDiJU7jtyeYl3HrBwy3BS8xw_x68nX5HmGhwdNE_yJimwHVyOexap3vDR0Y-g1YkTDeaLpecPcBhq2reKxz4eNzc5KnDx9MUKVnH0nkdGU6I7Enl5i_sFaD3xxA4MfFtfe2oP1BO0xQqU65di51m5M7kd9hwQeM6GZEjjmGaF47qM8zDD8iutyjJuOC-f7saOQ0tCqrabohhGD589-6Fx3NJvcYH-_2ORevaT05VTaWLM-7TPRmoKQ4L4MvUA67FzTTgGso8rBLOH5g3WdfkhlkmOIbTWfDnedx4p17JUite4kDG313i_6dgbvCCcfUeil0O9QZJkucvxxNIoPlqHuTT2DgQDsPjWHQM3c17fttOSkG6N33tYrfbrWPS-DdgDCxoze3a_w5n2tY-0nak-3xreV1R7iG33FDPd3G-r5cKeJt9Yf4aYEZ7vG2ekXppwPddL2r79UAmMAYargcmVN9sHbEbW3rbUPBHku2A0u2SXLT0I8kP8pdfpbLkIw4e3H1KbUjKfauwz_hUvoHaEjSLLBv3-UcofjJtsNKbKX5d2QLVG-yqDF_q165RpFN8UfMH9avZLp4vU0mt71iIn7cqhYnfywu3sUXurneLle52WycEwt-xf9jJOCaoMaewDGXfvbv5o_IIypJmOIWrG5g_evqCPj86zpgSSs8fuR421IxfaUF3uVw-Y2Wru1yyw9nz-3VjZ03KL8rnvYNL9ux4dHBPvf9csjbFsy6rsjZtspSMWYhDFmLgfe4jdsUkSwUg65WQbFTHskGpytJDCvHo46ahIIsNP2v7eebzJuulU5bSJ2s7RwzSQk4yMol_hHB_-fjizlhM7Bo_E7DQ4xJVaCNwvF7Ib064qdFzOOUU-0uFElY3-NEzwaRerXG7pMK4Pbabf5TqCay0P8Htvv0PDJTDeA)**
 to explore it interactively (pan/zoom, no setup needed). If you edit the
