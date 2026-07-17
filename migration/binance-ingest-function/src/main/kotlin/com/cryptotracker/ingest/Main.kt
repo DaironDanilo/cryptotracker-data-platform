@@ -35,8 +35,6 @@ import java.net.http.HttpRequest as JavaHttpRequest
 // Workflows' purposes (one HTTP call per unit of work), just without the
 // Functions Framework wrapper.
 
-// Mirrors backfill/binance-ohlcv/src/backfill_ohlcv.py -- keep the two in sync
-// if either changes (timestamp-unit handling especially).
 private const val ARCHIVE_HOST = "https://data.binance.vision"
 private const val LISTING_HOST = "https://s3-ap-northeast-1.amazonaws.com/data.binance.vision"
 private const val GCS_BUCKET = "gcp-crypto-tracker-raw-binance"

@@ -13,18 +13,12 @@ not otherwise touch this repo or its GCP project.
 
 Two generations of ingestion feed this pipeline (see the callouts below),
 converging through BigQuery's medallion layers into the Postgres tables
-`:server` reads. The color-coded diagram below shows the full path — live
-vs. manual vs. dormant components — and also lives on its own in
-[`architecture-diagram.mmd`](architecture-diagram.mmd) —
-**[open it preloaded in the Mermaid Live Editor](https://mermaid.live/edit#pako:eNqNWAtPHDcQ_ivWRVEh3eWOBJTo1EZKIKJpVYUCUtTmKuT1zt25eO2N7YVcHv-949e-7kggUrDn8XlmPJ6Z5cuEqRImczJ5_Jic6E1t1ZWm7AY0OaWWknNB7VLpiiyap7PDIwKyzK3K8Rehmq25BWYbDQuJ6ufUWCB2zQ1ZcgE_GcKUtCCtIVxaRdbW1mY-nVagK8rLA8FvUVwRjWh4HrcHHuZMA0jyK3HsqWFrKBsBZUb-BiHUHTKUhNzyCqYVlQ0VGbmAEsm1VrfccOSWpGgsKdFsKu20hCVoDeVCLuQSEdiaakuuXi8kwR_TFCtN6zWBT_bDYvLmkwUtqSCvzt-axeTfIOR-Ci6pZIB0FHsdNuTizeWVE90l-Rs3DrHEMB5E0kEwkOxhjKzSnOFBN4JLMPsDhBWwGxVOOlFcnrnt9lkYNufTwAv03oUGFd_FKJEpCXHCS1iBsXj-4KySa7xDZ1UKifup-Cr6iFC40dSJTKMfeYD6pdDTlydCNSW5aCQxoG85gwE6qnrrByhMOX2kRpz8P1WMsJAyxnmv9I27P4RiPlGTdgvcw0jCw7Ay87rB3LYf9haTs5PLOVLqPILZkPa5pnd5dHMx2e9fK_Ixr0UXl0Rpw6LWgt16K_ZSbmowTUULAcMbTqopOC1UF5uKajQ1Z7R-EKIBKH9XhYsOQuQaVphjejN19GtHMgf1ZoiUHtL-d1MK06PRGq1C6HY9TQXBvdKMhKBfxseqyc-ku0o0yjwg42IM30qmXTzaRGMaKqwhVLRZ8mR6TJ6Ef9uvJur3U2wbYbZTf60aLTaXG8kcAJWlgDzQcoPEH55fUj5W96Sh9uExmY2Ud0W9-OjLzOqvBvQmBbuCkgrhIifoRjX2IWHVSn4Gl_BhNY-U62ChyUjIM9zX16EsbYZ57wqYawFoz2lcJntGT2elRInpUivvKNw6y9Hdig8rjuECWc6ksJpHSjJpeLwDdbLu9zzeUZS8rsBiEUUffJxH1A5mV3xrl86XTU0LaoCcK2NXGh6Sp_4pXTmL_GporJG0NmtlO4HrljSUDFEPcnE9FAieXighmtqDBee0J5jrwA4ZNcM822DgXa_15X1_nJX3wnhuQHmWV9iu17twdgWQNQWcaYWoCIrrtiKc4IacKA1YklwD5sxlKxaFvdiR9x8SZQQ516qM4DmtOdnDDl_uk_nRbDYbQDiJU7jtyeYl3HrBwy3BS8xw_x68nX5HmGhwdNE_yJimwHVyOexap3vDR0Y-g1YkTDeaLpecPcBhq2reKxz4eNzc5KnDx9MUKVnH0nkdGU6I7Enl5i_sFaD3xxA4MfFtfe2oP1BO0xQqU65di51m5M7kd9hwQeM6GZEjjmGaF47qM8zDD8iutyjJuOC-f7saOQ0tCqrabohhGD589-6Fx3NJvcYH-_2ORevaT05VTaWLM-7TPRmoKQ4L4MvUA67FzTTgGso8rBLOH5g3WdfkhlkmOIbTWfDnedx4p17JUite4kDG313i_6dgbvCCcfUeil0O9QZJkucvxxNIoPlqHuTT2DgQDsPjWHQM3c17fttOSkG6N33tYrfbrWPS-DdgDCxoze3a_w5n2tY-0nak-3xreV1R7iG33FDPd3G-r5cKeJt9Yf4aYEZ7vG2ekXppwPddL2r79UAmMAYargcmVN9sHbEbW3rbUPBHku2A0u2SXLT0I8kP8pdfpbLkIw4e3H1KbUjKfauwz_hUvoHaEjSLLBv3-UcofjJtsNKbKX5d2QLVG-yqDF_q165RpFN8UfMH9avZLp4vU0mt71iIn7cqhYnfywu3sUXurneLle52WycEwt-xf9jJOCaoMaewDGXfvbv5o_IIypJmOIWrG5g_evqCPj86zpgSSs8fuR421IxfaUF3uVw-Y2Wru1yyw9nz-3VjZ03KL8rnvYNL9ux4dHBPvf9csjbFsy6rsjZtspSMWYhDFmLgfe4jdsUkSwUg65WQbFTHskGpytJDCvHo46ahIIsNP2v7eebzJuulU5bSJ2s7RwzSQk4yMol_hHB_-fjizlhM7Bo_E7DQ4xJVaCNwvF7Ib064qdFzOOUU-0uFElY3-NEzwaRerXG7pMK4Pbabf5TqCay0P8Htvv0PDJTDeA)**
-to explore it interactively (pan/zoom, no setup needed). If you edit the
-`.mmd` file, paste its new contents into that editor to get an updated link,
-and update the copy embedded below to match.
+`:server` reads. The color-coded diagram below (live vs. manual vs. dormant
+components) renders natively here on GitHub.
 
 ```mermaid
 %% CryptoTracker Data Platform — end-to-end architecture
 %% Green = live/scheduled, Yellow = one-time/manual, Red = provisioned but dormant/deferred
-
 flowchart TB
     subgraph ext["External APIs"]
         binanceAPI["Binance REST API"]
@@ -38,8 +32,6 @@ flowchart TB
         migGecko["migration/coingecko-ingest-job<br/>Cloud Run job"]
         migWorkflow["crypto-ingest-migration<br/>Cloud Workflow"]
         gcsBucket[("GCS: gcp-crypto-tracker-raw-binance")]
-        backfillBinance["backfill/binance-ohlcv<br/>(manual, resumable)"]
-        backfillGecko["backfill/coingecko-market-cap<br/>(manual, resumable)"]
         seedJob["coin-registry/seed_coins.py<br/>(manual, one-time)"]
     end
 
@@ -51,10 +43,10 @@ flowchart TB
         dailySync["candle-daily-sync-job<br/>15 0 * * *"]
     end
 
-    subgraph bq["BigQuery — medallion layout"]
+    subgraph bq["BigQuery — medallion architecture"]
         direction TB
         bronze[("bronze: bronze_candles, market_cap_history")]
-        dataform["Dataform — crypto-tracker-gold repo<br/>every 15 min"]
+        dataform["Dataform<br/>every 15 min"]
         silver[("silver: silver_candles")]
         gold[("gold: hourly_candle_metrics, daily_candle_metrics")]
     end
@@ -89,12 +81,10 @@ flowchart TB
         client["CMP client<br/>Android / iOS / Desktop / Web"]
     end
 
-    binanceHist --> backfillBinance --> bronze
-    geckoAPI --> backfillGecko --> bronze
     binanceHist --> migBinance --> gcsBucket
     migWorkflow --> gcsBucket
     gcsBucket --> bronze
-    migGecko --> bronze
+    geckoAPI --> migGecko --> bronze
 
     binanceAPI --> binanceIncr
     geckoAPI --> geckoIncr
@@ -105,11 +95,11 @@ flowchart TB
     geckoIncr --> snapshotsT
     geckoIncr --> marketsT
 
-    seedJob --> coinsT
+    binanceAPI --> seedJob
+    geckoAPI --> seedJob --> coinsT
 
     bronze --> dataform --> silver
-    silver --> dataform
-    dataform --> gold
+    silver -->|Dataform: hourly/daily rollups, same 15-min schedule| gold
 
     gold --> hourlySync --> hourlyRollup
     gold --> dailySync --> dailyRollup
@@ -130,21 +120,21 @@ flowchart TB
     classDef manual fill:#fff3cd,stroke:#ffc107,color:#000
     classDef dormant fill:#f8d7da,stroke:#dc3545,color:#000
 
-    class binanceIncr,geckoIncr,hourlySync,dailySync,dataform,server,client live
-    class migBinance,migGecko,migWorkflow,backfillBinance,backfillGecko,seedJob manual
+    class binanceIncr,geckoIncr,hourlySync,dailySync,dataform,bronze,silver,gold,server,client live
+    class migBinance,migGecko,migWorkflow,seedJob manual
     class cubeProd,cubeDev,cubeStore,topic,subPostgres,subRedis,deferred dormant
 ```
 
 Two things worth calling out explicitly since they're easy to miss reading
 the directory names alone:
 
-- **There are two generations of ingestion**: `migration/` and `backfill/`
-  are one-time/manually-triggered (historical data only, never on a
-  schedule); `recurring/` is the actual live, continuously-scheduled path
-  that keeps everything current. Don't confuse `migration/`'s
+- **`migration/` is one-time/manually-triggered** (historical data only,
+  never on a schedule); `recurring/` is the actual live, continuously-
+  scheduled path that keeps everything current. Don't confuse `migration/`'s
   `crypto-ingest-migration` Workflow with ongoing orchestration — it exists
   for re-running the historical load if ever needed, not for daily
-  operation.
+  operation. (An earlier local-only backfill approach was fully replaced by
+  `migration/` and removed.)
 - **Pub/Sub (`pubsub/`) is fully provisioned but has never carried real
   traffic.** The live price-writing job (`binance-incremental-job`) writes
   directly to BigQuery/Postgres and bypasses Pub/Sub entirely. `pubsub/`'s
@@ -157,7 +147,6 @@ the directory names alone:
 | Phase | Directory | Status |
 |---|---|---|
 | 2 | `coin-registry/` — Postgres schema + coin/binance_symbol seed job | **implemented, live** |
-| 3 | `backfill/` — one-time historical backfill (Binance OHLCV, CoinGecko market cap) | **implemented** — run manually, not scheduled |
 | 3 | `migration/` — one-time/manual historical ingestion via Cloud Run + a Cloud Workflow, staged through GCS into `bronze` | **implemented, deployed** — `binance-ingest` (Cloud Run service), `coingecko-ingest-job` (Cloud Run job), `crypto-ingest-migration` (Workflow); run manually, not scheduled |
 | 4 | `recurring/` — scheduled incremental ETL keeping `bronze`/Postgres current | **implemented, live** — see below |
 | 4 | `pubsub/` — GCP Pub/Sub topic/subscription provisioning | **implemented, deployed** — provisioned and monitored, but zero producers exist yet (see `pubsub/README.md`) |
@@ -218,7 +207,7 @@ Cloud Run Jobs (service accounts, deploy commands, verification queries).
 `settings.gradle.kts` / `build.gradle.kts` / `gradle/libs.versions.toml` are in
 place with shared plugin versions and a version catalog (Ktor, kotlinx.serialization,
 GCP Pub/Sub client, Postgres driver, Jedis), but no modules are registered yet —
-every phase implemented so far is plain Python (`coin-registry`, `backfill/`,
+every phase implemented so far is plain Python (`coin-registry`,
 `recurring/`) or Kotlin built standalone under `migration/` (not wired into
 this root Gradle build). Modules get uncommented in `settings.gradle.kts` as
 each deferred phase (`ws-worker`, `reconciliation-job`, `postgres-subscriber`,

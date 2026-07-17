@@ -2,7 +2,7 @@
 
 Four independent Cloud Run Jobs, each triggered by its own Cloud Scheduler
 trigger. The first two (Phase 4) keep data current between the (manual-only,
-never auto-triggered) one-time backfills in `backfill/` and `migration/`.
+never auto-triggered) one-time backfills in `migration/`.
 The last two (Phase 8, added later) are the Lambda-architecture sync jobs
 that feed the app's `:server` backend directly -- see their own doc comments
 in `candle-hourly-sync/src/main.py` / `candle-daily-sync/src/main.py` for
@@ -54,7 +54,7 @@ root-level `main.py`, and the process name must literally be `web`, not
 ## Infrastructure
 
 - Service accounts (least-privilege, one per job, distinct from the Phase 3
-  backfill/migration jobs' own service accounts):
+  `migration/` jobs' own service accounts):
   - `binance-incremental-runtime` -- `roles/bigquery.dataEditor` scoped to
     the `bronze_candles` *table* (not dataset-wide), `roles/bigquery.jobUser`
     project-wide (required to run load jobs at all), `roles/secretmanager.secretAccessor`

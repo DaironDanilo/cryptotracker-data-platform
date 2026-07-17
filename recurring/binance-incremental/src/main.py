@@ -2,11 +2,11 @@
 """Recurring Binance incremental job -- Phase 4.
 
 Runs every 5 minutes as a Cloud Run Job (triggered by Cloud Scheduler). This
-is NOT the one-time historical backfill (backfill/binance-ohlcv, migration/
-binance-ingest-function) -- those remain manual-only and are never
-auto-triggered. This job's only purpose is keeping bronze_candles and
-coin_snapshots current between backfills, using Binance's REST klines
-endpoint (not the static data.binance.vision archives).
+is NOT the one-time historical backfill (migration/binance-ingest-function)
+-- that remains manual-only and is never auto-triggered. This job's only
+purpose is keeping bronze_candles and coin_snapshots current between
+backfills, using Binance's REST klines endpoint (not the static
+data.binance.vision archives).
 
 For every coin in Supabase Postgres `coins` with a non-null binance_symbol:
   1. Read `last_loaded_close_time` from `ingestion_watermarks` (default: 24h

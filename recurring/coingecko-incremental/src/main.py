@@ -2,7 +2,7 @@
 """Recurring CoinGecko incremental job -- Phase 4.
 
 Runs hourly as a Cloud Run Job (triggered by Cloud Scheduler). This is NOT
-the one-time historical market-cap backfill (backfill/coingecko-market-cap)
+the one-time historical market-cap backfill (migration/coingecko-ingest-job)
 -- that remains manual-only. This job keeps the *live snapshot* current:
 Postgres `coins` (master list), `coin_snapshots` (market_cap_usd, rank,
 change_percent_24h -- never price_usd/price_source, which belong to the
@@ -32,8 +32,8 @@ RateLimiter below.
 Env vars:
   DATABASE_URL       required, Supabase Postgres connection string
   COINGECKO_API_KEY   optional but strongly recommended (anonymous tier is
-                        far stricter than the documented Demo-tier rate --
-                        see backfill/coingecko-market-cap's own notes)
+                        far stricter than the documented Demo tier's ~100
+                        requests/minute, ~10,000/month)
   TOP_N_COINS         optional, default 150
   REQUESTS_PER_MINUTE  optional, default 40
 """
