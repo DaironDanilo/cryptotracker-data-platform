@@ -48,11 +48,126 @@ not otherwise touch this repo or its GCP project.
 ```
 
 A rendered, color-coded version of this diagram (live vs. manual vs. dormant
-components) is in [`architecture-diagram.mmd`](architecture-diagram.mmd) —
+components) is below, and also lives on its own in
+[`architecture-diagram.mmd`](architecture-diagram.mmd) —
 **[open it preloaded in the Mermaid Live Editor](https://mermaid.live/edit#pako:eNqNWAtPHDcQ_ivWRVEh3eWOBJTo1EZKIKJpVYUCUtTmKuT1zt25eO2N7YVcHv-949e-7kggUrDn8XlmPJ6Z5cuEqRImczJ5_Jic6E1t1ZWm7AY0OaWWknNB7VLpiiyap7PDIwKyzK3K8Rehmq25BWYbDQuJ6ufUWCB2zQ1ZcgE_GcKUtCCtIVxaRdbW1mY-nVagK8rLA8FvUVwRjWh4HrcHHuZMA0jyK3HsqWFrKBsBZUb-BiHUHTKUhNzyCqYVlQ0VGbmAEsm1VrfccOSWpGgsKdFsKu20hCVoDeVCLuQSEdiaakuuXi8kwR_TFCtN6zWBT_bDYvLmkwUtqSCvzt-axeTfIOR-Ci6pZIB0FHsdNuTizeWVE90l-Rs3DrHEMB5E0kEwkOxhjKzSnOFBN4JLMPsDhBWwGxVOOlFcnrnt9lkYNufTwAv03oUGFd_FKJEpCXHCS1iBsXj-4KySa7xDZ1UKifup-Cr6iFC40dSJTKMfeYD6pdDTlydCNSW5aCQxoG85gwE6qnrrByhMOX2kRpz8P1WMsJAyxnmv9I27P4RiPlGTdgvcw0jCw7Ay87rB3LYf9haTs5PLOVLqPILZkPa5pnd5dHMx2e9fK_Ixr0UXl0Rpw6LWgt16K_ZSbmowTUULAcMbTqopOC1UF5uKajQ1Z7R-EKIBKH9XhYsOQuQaVphjejN19GtHMgf1ZoiUHtL-d1MK06PRGq1C6HY9TQXBvdKMhKBfxseqyc-ku0o0yjwg42IM30qmXTzaRGMaKqwhVLRZ8mR6TJ6Ef9uvJur3U2wbYbZTf60aLTaXG8kcAJWlgDzQcoPEH55fUj5W96Sh9uExmY2Ud0W9-OjLzOqvBvQmBbuCkgrhIifoRjX2IWHVSn4Gl_BhNY-U62ChyUjIM9zX16EsbYZ57wqYawFoz2lcJntGT2elRInpUivvKNw6y9Hdig8rjuECWc6ksJpHSjJpeLwDdbLu9zzeUZS8rsBiEUUffJxH1A5mV3xrl86XTU0LaoCcK2NXGh6Sp_4pXTmL_GporJG0NmtlO4HrljSUDFEPcnE9FAieXighmtqDBee0J5jrwA4ZNcM822DgXa_15X1_nJX3wnhuQHmWV9iu17twdgWQNQWcaYWoCIrrtiKc4IacKA1YklwD5sxlKxaFvdiR9x8SZQQ516qM4DmtOdnDDl_uk_nRbDYbQDiJU7jtyeYl3HrBwy3BS8xw_x68nX5HmGhwdNE_yJimwHVyOexap3vDR0Y-g1YkTDeaLpecPcBhq2reKxz4eNzc5KnDx9MUKVnH0nkdGU6I7Enl5i_sFaD3xxA4MfFtfe2oP1BO0xQqU65di51m5M7kd9hwQeM6GZEjjmGaF47qM8zDD8iutyjJuOC-f7saOQ0tCqrabohhGD589-6Fx3NJvcYH-_2ORevaT05VTaWLM-7TPRmoKQ4L4MvUA67FzTTgGso8rBLOH5g3WdfkhlkmOIbTWfDnedx4p17JUite4kDG313i_6dgbvCCcfUeil0O9QZJkucvxxNIoPlqHuTT2DgQDsPjWHQM3c17fttOSkG6N33tYrfbrWPS-DdgDCxoze3a_w5n2tY-0nak-3xreV1R7iG33FDPd3G-r5cKeJt9Yf4aYEZ7vG2ekXppwPddL2r79UAmMAYargcmVN9sHbEbW3rbUPBHku2A0u2SXLT0I8kP8pdfpbLkIw4e3H1KbUjKfauwz_hUvoHaEjSLLBv3-UcofjJtsNKbKX5d2QLVG-yqDF_q165RpFN8UfMH9avZLp4vU0mt71iIn7cqhYnfywu3sUXurneLle52WycEwt-xf9jJOCaoMaewDGXfvbv5o_IIypJmOIWrG5g_evqCPj86zpgSSs8fuR421IxfaUF3uVw-Y2Wru1yyw9nz-3VjZ03KL8rnvYNL9ux4dHBPvf9csjbFsy6rsjZtspSMWYhDFmLgfe4jdsUkSwUg65WQbFTHskGpytJDCvHo46ahIIsNP2v7eebzJuulU5bSJ2s7RwzSQk4yMol_hHB_-fjizlhM7Bo_E7DQ4xJVaCNwvF7Ib064qdFzOOUU-0uFElY3-NEzwaRerXG7pMK4Pbabf5TqCay0P8Htvv0PDJTDeA)**
 to explore it interactively (pan/zoom, no setup needed). If you edit the
-`.mmd` file, paste its new contents into that editor to get an updated link —
-GitHub also renders Mermaid natively when you view the file there.
+`.mmd` file, paste its new contents into that editor to get an updated link,
+and update the copy embedded below to match.
+
+```mermaid
+%% CryptoTracker Data Platform — end-to-end architecture
+%% Green = live/scheduled, Yellow = one-time/manual, Red = provisioned but dormant/deferred
+
+flowchart TB
+    subgraph ext["External APIs"]
+        binanceAPI["Binance REST API"]
+        binanceHist["data.binance.vision (historical klines)"]
+        geckoAPI["CoinGecko REST API"]
+    end
+
+    subgraph onetime["One-time / manual ingestion"]
+        direction TB
+        migBinance["migration/binance-ingest<br/>Cloud Run service"]
+        migGecko["migration/coingecko-ingest-job<br/>Cloud Run job"]
+        migWorkflow["crypto-ingest-migration<br/>Cloud Workflow"]
+        gcsBucket[("GCS: gcp-crypto-tracker-raw-binance")]
+        backfillBinance["backfill/binance-ohlcv<br/>(manual, resumable)"]
+        backfillGecko["backfill/coingecko-market-cap<br/>(manual, resumable)"]
+        seedJob["coin-registry/seed_coins.py<br/>(manual, one-time)"]
+    end
+
+    subgraph recurring["recurring/ — live, Cloud Scheduler + Cloud Run Jobs"]
+        direction TB
+        binanceIncr["binance-incremental-job<br/>*/5 * * * *"]
+        geckoIncr["coingecko-incremental-job<br/>0 * * * *"]
+        hourlySync["candle-hourly-sync-job<br/>*/5 * * * *"]
+        dailySync["candle-daily-sync-job<br/>15 0 * * *"]
+    end
+
+    subgraph bq["BigQuery — medallion layout"]
+        direction TB
+        bronze[("bronze: bronze_candles, market_cap_history")]
+        dataform["Dataform — crypto-tracker-gold repo<br/>every 15 min"]
+        silver[("silver: silver_candles")]
+        gold[("gold: hourly_candle_metrics, daily_candle_metrics")]
+    end
+
+    subgraph pg["Supabase Postgres"]
+        direction TB
+        coinsT[("coins")]
+        snapshotsT[("coin_snapshots")]
+        marketsT[("markets")]
+        hourlyRollup[("candle_rollups_hourly<br/>10-day retention")]
+        dailyRollup[("candle_rollups_daily<br/>13-month retention")]
+    end
+
+    subgraph cubeGroup["cube/ — Cube Core semantic layer (dormant)"]
+        direction TB
+        cubeProd["cube-api (prod) :4000"]
+        cubeDev["cube-api-dev :4001"]
+        cubeStore[("Cube Store cluster")]
+    end
+
+    subgraph pubsubGroup["pubsub/ — provisioned, zero live traffic"]
+        direction TB
+        topic["candle-events topic"]
+        subPostgres["candle-events-postgres sub (no consumer)"]
+        subRedis["candle-events-redis sub (no consumer)"]
+        deferred["airflow/, ws-worker/, postgres-subscriber/,<br/>redis-subscriber/, reconciliation-job/<br/>(empty scaffolds, deferred phase)"]
+    end
+
+    subgraph app["Companion app — separate repo"]
+        direction TB
+        server[":server — Ktor, Cloud Run"]
+        client["CMP client<br/>Android / iOS / Desktop / Web"]
+    end
+
+    binanceHist --> backfillBinance --> bronze
+    geckoAPI --> backfillGecko --> bronze
+    binanceHist --> migBinance --> gcsBucket
+    migWorkflow --> gcsBucket
+    gcsBucket --> bronze
+    migGecko --> bronze
+
+    binanceAPI --> binanceIncr
+    geckoAPI --> geckoIncr
+
+    binanceIncr --> bronze
+    binanceIncr --> snapshotsT
+    geckoIncr --> coinsT
+    geckoIncr --> snapshotsT
+    geckoIncr --> marketsT
+
+    seedJob --> coinsT
+
+    bronze --> dataform --> silver
+    silver --> dataform
+    dataform --> gold
+
+    gold --> hourlySync --> hourlyRollup
+    gold --> dailySync --> dailyRollup
+
+    bq -.->|not queried by :server today<br/>kept for future analytics/chatbot use case| cubeGroup
+
+    topic -.-> subPostgres
+    topic -.-> subRedis
+
+    hourlyRollup --> server
+    dailyRollup --> server
+    coinsT --> server
+    snapshotsT --> server
+    marketsT --> server
+    server --> client
+
+    classDef live fill:#d4edda,stroke:#28a745,color:#000
+    classDef manual fill:#fff3cd,stroke:#ffc107,color:#000
+    classDef dormant fill:#f8d7da,stroke:#dc3545,color:#000
+
+    class binanceIncr,geckoIncr,hourlySync,dailySync,dataform,server,client live
+    class migBinance,migGecko,migWorkflow,backfillBinance,backfillGecko,seedJob manual
+    class cubeProd,cubeDev,cubeStore,topic,subPostgres,subRedis,deferred dormant
+```
 
 Two things worth calling out explicitly since they're easy to miss reading
 the directory names alone:
