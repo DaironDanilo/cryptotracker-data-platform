@@ -91,11 +91,32 @@ Cube/BigQuery proved too slow/fragile for `:server`'s fixed six-range
 chart). `:server` also moved off this home server entirely and now runs on
 Cloud Run, so it no longer shares a Docker host with this stack at all.
 
-This stack is kept running for a **future analytics/chatbot use case** --
-ad-hoc, semantic-layer-style querying against BigQuery is a better fit for
-Cube's actual strength than the fixed chart endpoint ever was. It currently
-has no consumer; the `crypto-tracker-net` external network below exists for
+This stack exists for a **future analytics/chatbot use case** -- ad-hoc,
+semantic-layer-style querying against BigQuery is a better fit for Cube's
+actual strength than the fixed chart endpoint ever was. It currently has no
+consumer; the `crypto-tracker-net` external network below exists for
 whenever that future consumer is built.
+
+### Stopped as of 2026-07-19 -- was silently burning BigQuery cost
+
+All 6 containers (`docker compose stop`, config/volumes preserved) were
+stopped after a BigQuery cost spike investigation traced ~250 GiB/day of
+`Analysis` billing to this stack, with **no consumer reading the result**:
+
+- `cube-api-dev` (dev-mode instance, port 4001) had restarted **1,448
+  times** from a Node.js heap-out-of-memory crash, and re-ran its
+  dev-mode scheduler's pre-aggregation refresh queries against BigQuery on
+  every single restart cycle before crashing again.
+- `cube-refresh-worker` was separately running its own legitimate 5-minute
+  scheduled refresh for the `candles` pre-aggregation, hitting a
+  `Table ... Not found` error and intermittent DNS/network failures
+  reaching `bigquery.googleapis.com` from this box, retrying repeatedly.
+
+Both were keeping pre-aggregations "fresh" for a consumer that doesn't
+exist. Bring the stack back with `docker compose start` (from this
+directory) once the chatbot/analytics feature is actually being built --
+don't leave it running idle in the meantime, since this is exactly how it
+started costing money with nothing reading its output.
 
 ## Networking
 
