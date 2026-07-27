@@ -12,13 +12,102 @@ applied there via `DATABASE_URL` pointed at Supabase).
 
 | Job | Schedule | Reads from | Writes to | Purpose |
 |---|---|---|---|---|
-| `binance-incremental-job` | every 5 min (`*/5 * * * *`) | `data-api.binance.vision` | BigQuery `bronze_candles`, Postgres `coin_snapshots.price_usd` | Sole price-writing path (no WebSocket worker exists yet). Watermark-driven: reads `ingestion_watermarks` to know where to resume. |
+| `binance-incremental-job` | every 3h (`0 */3 * * *`) -- see note below, normally every 5 min | `data-api.binance.vision` | BigQuery `bronze_candles`, Postgres `coin_snapshots.price_usd` | Sole price-writing path (no WebSocket worker exists yet). Watermark-driven: reads `ingestion_watermarks` to know where to resume. |
 | `coingecko-incremental-job` | hourly (`0 * * * *`) | CoinGecko REST | Postgres `coins`, `coin_snapshots` (market_cap_usd/rank/change_percent_24h) every run; `markets` once/day only | Live snapshot only -- does not write to BigQuery. Never touches `price_usd`/`price_source` for Binance-tradeable coins (that's the Binance job's job); *is* the sole price source for coins with no Binance USDT pair. `markets` refresh (`/coins/{id}/tickers`, ~1 call/coin) is gated to once/day via `MARKETS_REFRESH_HOUR_UTC` -- run hourly like the rest it would alone exhaust CoinGecko's Demo-tier 10,000/month quota in under 3 days (confirmed: this happened on 2026-07-17). |
-| `candle-hourly-sync-job` | every 5 min (`*/5 * * * *`) | BigQuery `gold.hourly_candle_metrics` (Dataform-managed) | Postgres `candle_rollups_hourly` | Lambda-architecture speed layer -- lets `:server`'s history endpoint serve 1D/5D chart ranges from a plain indexed Postgres query instead of BigQuery/Cube on every request. |
+| `candle-hourly-sync-job` | every 3h, offset (`20 */3 * * *`) -- see note below, normally every 5 min | BigQuery `gold.hourly_candle_metrics` (Dataform-managed) | Postgres `candle_rollups_hourly` | Lambda-architecture speed layer -- lets `:server`'s history endpoint serve 1D/5D chart ranges from a plain indexed Postgres query instead of BigQuery/Cube on every request. |
 | `candle-daily-sync-job` | once daily (`15 0 * * *`) | BigQuery `gold.daily_candle_metrics` (Dataform-managed) | Postgres `candle_rollups_daily` | Lambda-architecture batch layer -- serves 1M/6M/YTD/1Y chart ranges; `:server` merges in a synthetic "today" candle from `candle_rollups_hourly` at read time to stay fresh between daily runs. |
 
 All four are idempotent -- safe to re-run, safe if a scheduled invocation
 overlaps with a slow previous one still finishing.
+
+### Ingestion cadence: every 3h, and everything downstream now matches it (2026-07-20, refined 2026-07-27)
+
+`binance-incremental-job` was dropped from `*/5 * * * *` to `0 */3 * * *` on
+2026-07-20 to keep Cloud Run Jobs' CPU usage under the free tier
+(240,000 vCPU-s/month, shared across the whole billing account) -- at the
+normal 5-minute cadence this job alone runs ~1,308,285 vCPU-s/month, ~5.5x
+the entire free tier. `coingecko-incremental-job` and `candle-daily-sync-job`
+were left untouched (not part of the original spike, and
+`coingecko-incremental-job` alone is already ~45% of the free tier at its
+normal hourly cadence, so there wasn't much room to also throttle it without
+losing coin/market freshness entirely).
+
+Once `binance-incremental-job` was down to every 3h, everything downstream
+that ultimately depends on its output needed to either match that cadence
+or waste real cost reprocessing unchanged data -- confirmed empirically,
+not assumed:
+
+- **`silver.silver_candles`** is a native BigQuery Materialized View over
+  `bronze.bronze_candles` (`refreshIntervalMs: 300000` -- checks every 5
+  min) -- but BigQuery only actually *executes* (and bills) a refresh when
+  the base table has new rows, so in practice it already tracks
+  `binance-incremental-job`'s real cadence exactly on its own (observed:
+  refreshes fire ~8 min after each 3-hourly ingestion run, ~0.02 GiB each,
+  negligible -- no action needed here).
+- **Dataform's `gold-rollups-schedule`** (rebuilds
+  `gold.hourly_candle_metrics`/`gold.daily_candle_metrics` from
+  `silver.silver_candles`) was originally just reverted from `*/5 * * * *`
+  back to its pre-2026-07-17 default of `*/15 * * * *` to stay under
+  BigQuery's separate 1 TiB/month on-demand query free tier (also
+  billing-account-scoped) -- but since `silver_candles` itself only
+  actually changes every 3h right now, running Dataform every 15 min meant
+  11 out of every 12 runs were reprocessing byte-identical source data for
+  zero new information, at full cost (~0.27 GiB/run, confirmed via
+  `INFORMATION_SCHEMA.JOBS_BY_PROJECT` -- not query inefficiency, both SQLX
+  definitions already use a bounded 6h/3-day incremental lookback against a
+  MONTH-partitioned source table). **Changed again to `12 */3 * * *`**
+  (12 min after each 3-hour boundary -- buffers `binance-incremental-job`'s
+  ~3.3 min average runtime plus `silver_candles`' ~8 min refresh lag, so
+  Dataform never rebuilds from stale/pre-refresh source data). At 8
+  runs/day instead of 96, this is ~6.6% of the 1 TiB free tier/month --
+  far more margin than the 80%-utilization 15-minute compromise, because
+  it eliminates genuinely wasted computation rather than just budgeting
+  for it.
+- **`candle-hourly-sync-job`** was originally throttled to the same
+  `0 */3 * * *` as `binance-incremental-job` -- which meant it fired at the
+  exact same instant as ingestion, syncing Postgres from gold data that was
+  still a full cycle stale (Dataform hadn't rebuilt yet). **Offset to
+  `20 */3 * * *`** -- 8 min after Dataform's rebuild (which itself only
+  takes ~13s), comfortable margin so Postgres always picks up the
+  freshly-rebuilt gold data from the same cycle, not the previous one.
+
+Real cost of all this: chart data is up to ~3h stale instead of ~5min while
+`binance-incremental-job` stays throttled, not zero cost -- but no step in
+the chain wastes computation reprocessing data that hasn't changed.
+
+**Important: these three schedules are now coupled.** If
+`binance-incremental-job` ever reverts to a different cadence (e.g. back to
+every 5 min), Dataform's `gold-rollups-schedule` and
+`candle-hourly-sync-trigger` need to be reconsidered *together* with it, not
+left at their 3h-tuned offsets -- otherwise Dataform goes back to
+reprocessing unchanged data (if left at a sub-3h interval while ingestion
+is still slow) or gold/Postgres lag behind fresh ingestion (if left at a
+3h-scale interval after ingestion speeds back up).
+
+**Revert all three together once ingestion frequency changes:**
+
+```bash
+gcloud scheduler jobs update http binance-incremental-trigger \
+  --location=us-central1 --project=gcp-crypto-tracker --schedule="*/5 * * * *"
+
+TOKEN=$(gcloud auth print-access-token)
+curl -X PATCH \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  "https://dataform.googleapis.com/v1/projects/gcp-crypto-tracker/locations/us-central1/repositories/crypto-tracker-gold/workflowConfigs/gold-rollups-schedule?updateMask=cronSchedule" \
+  -d '{
+    "cronSchedule": "*/15 * * * *",
+    "releaseConfig": "projects/gcp-crypto-tracker/locations/us-central1/repositories/crypto-tracker-gold/releaseConfigs/gold-rollups"
+  }'
+
+gcloud scheduler jobs update http candle-hourly-sync-trigger \
+  --location=us-central1 --project=gcp-crypto-tracker --schedule="*/5 * * * *"
+```
+
+(`gcloud dataform` doesn't exist on this gcloud install, not even in
+alpha/beta -- Dataform schedule changes only reachable via the
+`workflowConfigs.patch` REST endpoint. Must include `releaseConfig` in the
+PATCH body even though the `updateMask` only covers `cronSchedule`, or the
+API 400s with "release_config is not specified".)
 
 ## Two real bugs found and fixed while building this (read before touching either job)
 

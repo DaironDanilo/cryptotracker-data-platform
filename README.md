@@ -46,7 +46,7 @@ flowchart TB
     subgraph bq["BigQuery — medallion architecture"]
         direction TB
         bronze[("bronze: bronze_candles, market_cap_history")]
-        dataform["Dataform<br/>every 5 min"]
+        dataform["Dataform<br/>every 15 min (normal)"]
         silver[("silver: silver_candles")]
         gold[("gold: hourly_candle_metrics, daily_candle_metrics")]
     end
@@ -150,7 +150,7 @@ the directory names alone:
 | 3 | `migration/` — one-time/manual historical ingestion via Cloud Run + a Cloud Workflow, staged through GCS into `bronze` | **implemented, deployed** — `binance-ingest` (Cloud Run service), `coingecko-ingest-job` (Cloud Run job), `crypto-ingest-migration` (Workflow); run manually, not scheduled |
 | 4 | `recurring/` — scheduled incremental ETL keeping `bronze`/Postgres current | **implemented, live** — see below |
 | 4 | `pubsub/` — GCP Pub/Sub topic/subscription provisioning | **implemented, deployed** — provisioned and monitored, but zero producers exist yet (see `pubsub/README.md`) |
-| 5 | `dataform/` — `silver`/`gold` BigQuery transforms | **implemented, live** — scheduled every 5 min |
+| 5 | `dataform/` — `silver`/`gold` BigQuery transforms | **implemented, live** — scheduled every 15 min (see `recurring/README.md` for why: BigQuery's 1 TiB/month on-demand query free tier) |
 | 5 | `ws-worker/`, `reconciliation-job/`, `common/` — Binance WS → Pub/Sub | scaffold only, deferred |
 | 6 | `postgres-subscriber/`, `redis-subscriber/` — Pub/Sub consumers | scaffold only, deferred |
 | 7 | `cube/` — BigQuery semantic layer (Cube Core + Cube Store) | **implemented, deployed** (home server) — not currently queried by anything; kept for a future analytics/chatbot use case |
@@ -189,13 +189,19 @@ python3 src/seed_coins.py --top-n 150
 ## The live, scheduled pipeline
 
 Everything below runs continuously in GCP project `gcp-crypto-tracker`
-(`us-central1`), no manual intervention required:
+(`us-central1`), no manual intervention required. **Temporary exception**:
+`binance-incremental-job` is throttled to every 3h as of 2026-07-20 to stay
+under the Cloud Run Jobs free tier, and Dataform's gold-layer rebuild +
+`candle-hourly-sync-job` are now cadence-matched/offset to it rather than
+running independently -- see `recurring/README.md` for the why/math and the
+revert-all-three-together command. The schedules below are the
+normal/designed state (ingestion every 5 min, not throttled to 3h).
 
 | Component | Trigger | Does |
 |---|---|---|
 | `binance-incremental-job` | Cloud Scheduler, `*/5 * * * *` | Appends new candles to `bronze.bronze_candles`; writes live price to Postgres `coin_snapshots` for Binance-tradeable coins |
 | `coingecko-incremental-job` | Cloud Scheduler, `0 * * * *` | Refreshes Postgres `coins`/`coin_snapshots`/`markets`; sole price source for coins with no Binance USDT pair |
-| Dataform (`crypto-tracker-gold` repo, `gold-rollups-schedule` workflow config) | Dataform-native schedule, `*/5 * * * *` | Rebuilds `gold.hourly_candle_metrics`/`gold.daily_candle_metrics` from `silver.silver_candles` |
+| Dataform (`crypto-tracker-gold` repo, `gold-rollups-schedule` workflow config) | Dataform-native schedule, `*/15 * * * *` | Rebuilds `gold.hourly_candle_metrics`/`gold.daily_candle_metrics` from `silver.silver_candles` |
 | `candle-hourly-sync-job` | Cloud Scheduler, `*/5 * * * *` | Syncs `gold.hourly_candle_metrics` → Postgres `candle_rollups_hourly` |
 | `candle-daily-sync-job` | Cloud Scheduler, `15 0 * * *` | Syncs `gold.daily_candle_metrics` → Postgres `candle_rollups_daily` |
 
