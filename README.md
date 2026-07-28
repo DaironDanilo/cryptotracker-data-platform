@@ -27,7 +27,7 @@ independently of this diagram.
 flowchart TB
     subgraph ext["External APIs"]
         binanceAPI["Binance REST API"]
-        binanceHist["data.binance.vision (historical klines)"]
+        binanceHist["data.binance.vision — market-data mirror<br/>(used for both historical and live klines)"]
         geckoAPI["CoinGecko REST API"]
     end
 
@@ -51,7 +51,7 @@ flowchart TB
     subgraph bq["BigQuery — medallion architecture"]
         direction TB
         bronze[("bronze: bronze_candles, market_cap_history")]
-        dataform["Dataform<br/>cadence-matched to ingestion, offset after it"]
+        dataform["Dataform<br/>gold-rollups-schedule"]
         silver[("silver: silver_candles")]
         gold[("gold: hourly_candle_metrics, daily_candle_metrics")]
     end
@@ -92,7 +92,7 @@ flowchart TB
     gcsBucket --> bronze
     geckoAPI --> migGecko --> bronze
 
-    binanceAPI --> binanceIncr
+    binanceHist -->|data-api.binance.vision, not api.binance.com -- geo-blocked on Cloud Run, see recurring/README.md| binanceIncr
     geckoAPI --> geckoIncr
 
     binanceIncr --> bronze
@@ -104,8 +104,8 @@ flowchart TB
     binanceAPI --> seedJob
     geckoAPI --> seedJob --> coinsT
 
-    bronze --> dataform --> silver
-    silver -->|Dataform: hourly/daily rollups, cadence-matched to binance-incremental-job, not a fixed interval| gold
+    bronze -->|native BigQuery materialized view, auto-refresh, no Dataform involvement| silver
+    silver --> dataform -->|cadence-matched to binance-incremental-job, not a fixed interval| gold
 
     gold --> hourlySync --> hourlyRollup
     gold --> dailySync --> dailyRollup
