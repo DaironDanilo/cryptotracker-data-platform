@@ -11,12 +11,14 @@ This file is agent-operating rules kept in the open, cross-tool AGENTS.md
 format (per the sibling `cryptoTracker` repo's established convention) so
 any AI coding tool can read it, not just Claude Code.
 
-## Check `HANDOFF.md` first
+## `HANDOFF.md` — read this if your tool doesn't auto-load it
 
 This repo's live GCP state changes independently of its code (schedules,
 which services are running, cost-incident history) — `HANDOFF.md` is a
 dated snapshot of that state, updated at the end of significant sessions.
-Read it before assuming any schedule/service is at its "normal" value.
+Claude Code loads it automatically every session (imported from
+`CLAUDE.md`); other tools should read it explicitly before assuming any
+schedule/service is at its "normal" value.
 
 ## Git / commit rules (standing — do not ask, just follow)
 
